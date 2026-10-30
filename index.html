@@ -109,7 +109,7 @@ footer{padding:28px 0 40px;font-size:13px;color:var(--muted)}
   <h1>Would your books survive a buyer's accountants?</h1>
   <p class="lead">A buyer will rebuild your earnings from source documents. Score your finance function against the 15 things they check first, and see where the gaps are.</p>
   <a class="btn light" href="#quiz-start">Start the check-up</a>
-  <a class="btn ghost" href="#" id="pdfLink">Get the printable checklist</a>
+  <a class="btn ghost" href="TSA-Exit-Ready-Finance-Checklist.pdf" id="pdfLink" target="_blank" rel="noopener">Get the printable checklist</a>
   <p class="meta">Free · about 3 minutes · for PE sponsors, operating partners and portfolio-company CFOs</p>
 </div></section>
 
@@ -137,10 +137,13 @@ footer{padding:28px 0 40px;font-size:13px;color:var(--muted)}
     <form id="leadForm" novalidate>
       <div class="row">
         <label class="f">First name<input type="text" name="first_name" autocomplete="given-name" required></label>
-        <label class="f">Work email<input type="email" name="email" autocomplete="email" required></label>
+        <label class="f">Last name<input type="text" name="last_name" autocomplete="family-name" required></label>
       </div>
       <div class="row">
+        <label class="f">Work email<input type="email" name="email" autocomplete="email" required></label>
         <label class="f">Company<input type="text" name="company" autocomplete="organization" required></label>
+      </div>
+      <div class="row">
         <label class="f">Your role
           <select name="role" required>
             <option value="">Choose one</option>
@@ -151,7 +154,9 @@ footer{padding:28px 0 40px;font-size:13px;color:var(--muted)}
             <option>Other</option>
           </select>
         </label>
+        <div></div>
       </div>
+      <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
       <label class="consent"><input type="checkbox" name="consent" required>
         <span>Send me my results and occasional Tech Savvy Accountants insights. I can unsubscribe at any time. See our <a href="#" target="_blank" rel="noopener">privacy policy</a>.</span></label>
       <div class="err" id="formErr" role="alert"></div>
@@ -175,7 +180,7 @@ footer{padding:28px 0 40px;font-size:13px;color:var(--muted)}
     <div class="cta">
       <h3>Talk it through with us</h3>
       <p>Book a free 30-minute conversation with a Tech Savvy Accountants controller. We'll go through your result and what it would take to close the gaps before a buyer looks. No preparation needed.</p>
-      <a class="btn light" href="#" id="bookBtn" target="_blank" rel="noopener">Book a free conversation</a>
+      <a class="btn light" href="https://meetings-na2.hubspot.com/ateet" id="bookBtn" target="_blank" rel="noopener">Book a free conversation</a>
       <button class="btn ghost" type="button" onclick="window.print()">Print my results</button>
     </div>
     <p class="hint" style="margin-top:16px">This check-up is general guidance, not an audit, a quality-of-earnings review or legal advice.</p>
@@ -187,7 +192,7 @@ footer{padding:28px 0 40px;font-size:13px;color:var(--muted)}
 </div></footer>
 
 <script>
-const FORM_ENDPOINT = "";            // e.g. HubSpot / Formspree / Mailchimp endpoint. Empty = preview mode.
+const FORM_ENDPOINT = "https://api.hsforms.com/submissions/v3/integration/submit/247840265/58ec9064-0662-4189-966f-16b65a155e26"; // HubSpot form "Exit-Ready Check-up". Empty = preview mode.
 const BOOKING_URL   = "#";
 
 const SECTIONS = [
@@ -267,22 +272,36 @@ document.getElementById("leadForm").addEventListener("submit", async e=>{
   e.preventDefault();
   const f=e.target, err=document.getElementById("formErr");
   const email=f.email.value.trim();
-  if(!f.first_name.value.trim()||!f.company.value.trim()||!f.role.value){err.textContent="Please fill in every field.";return;}
+  if(f.website.value) return; // spam trap
+  if(!f.first_name.value.trim()||!f.last_name.value.trim()||!f.company.value.trim()||!f.role.value){err.textContent="Please fill in every field.";return;}
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){err.textContent="Please enter a valid email address.";return;}
   if(!f.consent.checked){err.textContent="Please tick the box so we can send your results.";return;}
   err.textContent="";
   const r=compute();
-  const payload={first_name:f.first_name.value.trim(),email,company:f.company.value.trim(),role:f.role.value,
+  const payload={first_name:f.first_name.value.trim(),last_name:f.last_name.value.trim(),email,company:f.company.value.trim(),role:f.role.value,
     score_pct:r.pct,section_scores:Object.fromEntries(r.secs.map(s=>[s.name,s.pct])),
     top_gaps:r.gaps.slice(0,3).map(g=>g.it[0]),answers,source:"exit-ready-checkup",...utm()};
   if(FORM_ENDPOINT){
     const b=document.getElementById("submitBtn"); b.disabled=true; b.textContent="Sending…";
-    try{const res=await fetch(FORM_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(payload)});
+    try{const res=await fetch(FORM_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(toHubSpot(payload))});
       if(!res.ok) throw 0;}
     catch(_){b.disabled=false;b.textContent="Show my results";err.textContent="Something went wrong sending your details. Please try again.";return;}
   } else { console.log("Preview mode, lead not sent:", payload); }
   renderResults(r, f.first_name.value.trim());
 });
+
+function toHubSpot(p){
+  const lines=["Exit-Ready Check-up result: "+p.score_pct+"%",
+    "Sections: "+Object.entries(p.section_scores).map(([k,v])=>k+" "+v+"%").join("; "),
+    "Top gaps: "+(p.top_gaps.length?p.top_gaps.join("; "):"none"),
+    "Consent to receive results and insights: yes ("+new Date().toISOString().slice(0,10)+")"];
+  const src=["utm_source","utm_medium","utm_campaign","utm_content"].filter(k=>p[k]).map(k=>k+"="+p[k]).join("&");
+  if(src) lines.push("Source: "+src);
+  const F=(name,value)=>({objectTypeId:"0-1",name,value});
+  return {fields:[F("email",p.email),F("firstname",p.first_name),F("lastname",p.last_name),F("company",p.company),
+    F("jobtitle",p.role),F("message",lines.join("\n"))],
+    context:{pageUri:location.href,pageName:document.title}};
+}
 
 function renderResults(r,name){
   const [b,t]=band(r.pct,r.secs);
